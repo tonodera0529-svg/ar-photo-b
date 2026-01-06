@@ -70,6 +70,7 @@
         }
         #shutter-btn:active { background-color: #ddd; transform: translateX(-50%) scale(0.95); }
 
+        /* 切り替えボタンのスタイル */
         #switch-btn {
             position: absolute;
             top: calc(20px + env(safe-area-inset-top));
@@ -78,7 +79,7 @@
             height: 50px;
             background-color: rgba(0, 0, 0, 0.5);
             border-radius: 50%;
-            z-index: 10;
+            z-index: 20; /* 前面に出るように数値を上げました */
             cursor: pointer;
             display: flex;
             justify-content: center;
@@ -90,8 +91,8 @@
         #switch-btn:active { background-color: rgba(0,0,0,0.8); }
         
         #switch-btn svg {
-            width: 28px;
-            height: 28px;
+            width: 30px;
+            height: 30px;
             fill: white;
         }
 
@@ -104,7 +105,7 @@
             height: 100vh; 
             height: 100dvh;
             background: rgba(0,0,0,0.95);
-            z-index: 20;
+            z-index: 30; /* プレビューは一番上 */
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -183,11 +184,9 @@
 
         <div id="switch-btn">
             <svg viewBox="0 0 24 24">
-                <path d="M20,4h-3.17L15,2H9L7.17,4H4C2.9,4,2,4.9,2,6v12c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V6C22,4.9,21.1,4,20,4z M12,17 c-2.76,0-5-2.24-5-5s2.24-5,5-5s5,2.24,5,5S14.76,17,12,17z M12,8c-1.66,0-3,1.34-3,3s1.34,3,3,3s3-1.34,3-3S13.66,8,12,8z"/>
                 <path d="M0 0h24v24H0z" fill="none"/>
-                <path d="M19.5 9.5c-1.03 0-1.92.62-2.29 1.5h-2.93c.35-1.76 1.77-3.12 3.52-3.4L16 6.5h6v6l-1.8-1.8c-.75.51-1.63.8-2.6.8-2.53 0-4.63-1.88-4.97-4.3h2.04c.32 1.31 1.49 2.3 2.83 2.3.85 0 1.62-.41 2.1-1.06l1.75 1.75c-.93 1.02-2.27 1.66-3.75 1.66-2.9 0-5.33-2.19-5.69-5h-2c.32 3.92 3.6 7 7.59 7 2.09 0 3.98-.85 5.38-2.21L23 19v-6h-6l2.38 2.38C18.27 16.68 16.77 17.5 15.1 17.5c-3.22 0-5.94-2.28-6.65-5.34h2.05c.63 1.93 2.44 3.34 4.6 3.34 1.93 0 3.61-1.17 4.28-2.86L17.21 11h2.93c.37.88 1.26 1.5 2.29 1.5 1.38 0 2.5-1.12 2.5-2.5S23.88 7.5 22.5 7.5z" opacity=".3"/>
-                <path d="M16 6.5l1.8 1.1c-1.75.28-3.17 1.64-3.52 3.4h2.93c.37-.88 1.26-1.5 2.29-1.5 1.38 0 2.5 1.12 2.5 2.5s-1.12 2.5-2.5 2.5c-1.03 0-1.92-.62-2.29-1.5h-2.93c.67 1.69 2.35 2.86 4.28 2.86 2.16 0 3.97-1.41 4.6-3.34h-2.05c-.71 3.06-3.43 5.34-6.65 5.34-1.67 0-3.17-.82-4.18-2.12L10 20H4v-6l2.21 2.21C7.61 17.55 9.7 18.4 11.9 18.4c3.99 0 7.27-3.08 7.59-7h2c-.36 2.81-2.79 5-5.69 5-1.48 0-2.82-.64-3.75-1.66L13.9 13c-.48.65-1.25 1.06-2.1 1.06-1.34 0-2.51-.99-2.83-2.3H6.93c.34 2.42 2.44 4.3 4.97 4.3.97 0 1.85-.29 2.6-.8L16.3 17h.2V6.5H16z"/>
-             </svg>
+                <path d="M20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 11.5V13H9v2.5L5.5 12 9 8.5V11h6V8.5l3.5 3.5-3.5 3.5z"/>
+            </svg>
         </div>
     </div>
 
@@ -288,7 +287,6 @@
             
             currentBlob = dataURLtoBlob(dataURL);
 
-            // PC用に一応リンクを設定するが、ここでは自動クリックさせない
             hiddenDlLink.href = dataURL;
             hiddenDlLink.download = "nihonmatsu-photo.jpg";
 
@@ -302,29 +300,30 @@
         shutterBtn.addEventListener('touchstart', takePhoto, {passive: false});
         shutterBtn.addEventListener('click', takePhoto);
 
-        // ★修正ポイント：シェア機能が動いたら、何があってもダウンロード（予備）には進まない
+        // 切り替えボタンのイベントリスナー
+        document.getElementById('switch-btn').addEventListener('click', () => {
+            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+            startCamera();
+        });
+
         shareBtn.addEventListener('click', async () => {
-            // Android/iOSで共有機能が使える場合
             if (navigator.share && currentBlob) {
                 try {
                     const file = new File([currentBlob], "photo.jpg", { type: "image/jpeg" });
                     
-                    // ファイル共有が可能かチェック
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         await navigator.share({
                             files: [file],
                             title: '二十歳のつどい記念写真',
                             text: '二本松市 二十歳のつどい記念フレームで撮影しました！'
                         });
-                        return; // ★シェアメニューが開いたらここで終了（勝手なダウンロードはしない）
+                        return;
                     }
                 } catch (error) {
                     console.log('共有エラーまたはキャンセル:', error);
-                    return; // ★キャンセルされた場合も、勝手なダウンロードはしない
+                    return;
                 }
             }
-            
-            // 共有機能が全く使えない場合（PCなど）のみダウンロードを実行
             hiddenDlLink.click();
         });
 

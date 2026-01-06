@@ -145,9 +145,9 @@
             justify-content: center;
         }
         
-        /* 共有ボタンを目立たせる */
+        /* 共有ボタンのデザイン */
         #share-btn {
-            background-color: #007AFF; /* iPhoneっぽい青 */
+            background-color: #007AFF;
             color: white;
             min-width: 120px;
         }
@@ -170,7 +170,7 @@
         .guide-text {
             font-size: 14px;
             margin-bottom: 15px;
-            line-height: 1.5;
+            line-height: 1.6;
         }
     </style>
 </head>
@@ -198,11 +198,13 @@
 
     <div id="preview-overlay">
         <img id="preview-img">
-        <p class="guide-text">「保存・共有」を押して、<br>「画像を保存」や「LINE」を選んでください</p>
+        <p class="guide-text">画像を長押し、または下のボタンから<br>保存・共有してください</p>
         
         <div class="btn-group">
             <button id="share-btn" class="btn">保存・共有</button>
-            <a id="hidden-dl-link" style="display:none;"></a> <button class="btn" onclick="closePreview()">閉じる</button>
+            <a id="hidden-dl-link" style="display:none;"></a>
+            
+            <button class="btn" onclick="closePreview()">閉じる</button>
         </div>
     </div>
 
@@ -223,7 +225,7 @@
         
         let currentFacingMode = 'user';
         let currentStream = null;
-        let currentBlob = null; // 撮影データを保持する変数
+        let currentBlob = null;
 
         function startCamera() {
             if (currentStream) {
@@ -260,12 +262,6 @@
             console.log("フレーム画像の読み込みに失敗しました。");
         };
 
-        document.getElementById('switch-btn').addEventListener('click', () => {
-            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-            startCamera();
-        });
-
-        // 画像データをBlob（ファイル）に変換する関数
         function dataURLtoBlob(dataurl) {
             var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
                 bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
@@ -290,14 +286,11 @@
                 context.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
             }
             
-            // 画像データを生成
             const dataURL = canvas.toDataURL('image/jpeg', 1.0);
             previewImg.src = dataURL;
             
-            // ★重要：共有用にBlobデータを生成しておく
             currentBlob = dataURLtoBlob(dataURL);
 
-            // PC等のために一応ダウンロードリンクにもセット
             hiddenDlLink.href = dataURL;
             hiddenDlLink.download = "nihonmatsu-photo.jpg";
 
@@ -311,12 +304,9 @@
         shutterBtn.addEventListener('touchstart', takePhoto, {passive: false});
         shutterBtn.addEventListener('click', takePhoto);
 
-        // ★保存・共有ボタンの処理
         shareBtn.addEventListener('click', async () => {
-            // Web Share APIが使えるかチェック
             if (navigator.share && currentBlob) {
                 try {
-                    // 画像ファイルを「ファイル」として共有
                     const file = new File([currentBlob], "photo.jpg", { type: "image/jpeg" });
                     
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -325,15 +315,12 @@
                             title: '二十歳のつどい記念写真',
                             text: '二本松市 二十歳のつどい記念フレームで撮影しました！'
                         });
-                        return; // 共有成功したらここで終了
+                        return;
                     }
                 } catch (error) {
                     console.log('共有エラーまたはキャンセル:', error);
-                    // エラーが出た場合（PCなど）は、通常のダウンロードに切り替える
                 }
             }
-            
-            // 共有機能が使えない場合（PCや一部Androidブラウザ）は強制ダウンロード
             hiddenDlLink.click();
         });
 

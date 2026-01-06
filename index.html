@@ -145,14 +145,12 @@
             justify-content: center;
         }
         
-        /* 共有ボタンのデザイン */
         #share-btn {
             background-color: #007AFF;
             color: white;
             min-width: 120px;
         }
 
-        /* フラッシュ演出 */
         #flash-layer {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -166,7 +164,6 @@
             opacity: 1 !important;
         }
         
-        /* 案内テキスト */
         .guide-text {
             font-size: 14px;
             margin-bottom: 15px;
@@ -291,6 +288,7 @@
             
             currentBlob = dataURLtoBlob(dataURL);
 
+            // PC用に一応リンクを設定するが、ここでは自動クリックさせない
             hiddenDlLink.href = dataURL;
             hiddenDlLink.download = "nihonmatsu-photo.jpg";
 
@@ -304,23 +302,29 @@
         shutterBtn.addEventListener('touchstart', takePhoto, {passive: false});
         shutterBtn.addEventListener('click', takePhoto);
 
+        // ★修正ポイント：シェア機能が動いたら、何があってもダウンロード（予備）には進まない
         shareBtn.addEventListener('click', async () => {
+            // Android/iOSで共有機能が使える場合
             if (navigator.share && currentBlob) {
                 try {
                     const file = new File([currentBlob], "photo.jpg", { type: "image/jpeg" });
                     
+                    // ファイル共有が可能かチェック
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         await navigator.share({
                             files: [file],
                             title: '二十歳のつどい記念写真',
                             text: '二本松市 二十歳のつどい記念フレームで撮影しました！'
                         });
-                        return;
+                        return; // ★シェアメニューが開いたらここで終了（勝手なダウンロードはしない）
                     }
                 } catch (error) {
                     console.log('共有エラーまたはキャンセル:', error);
+                    return; // ★キャンセルされた場合も、勝手なダウンロードはしない
                 }
             }
+            
+            // 共有機能が全く使えない場合（PCなど）のみダウンロードを実行
             hiddenDlLink.click();
         });
 

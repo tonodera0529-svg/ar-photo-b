@@ -117,7 +117,7 @@
         
         #preview-img {
             max-width: 90vw;
-            max-height: 60vh; /* ボタンを表示するために少し小さく調整 */
+            max-height: 55vh; 
             border: 2px solid white;
             margin-bottom: 15px;
             object-fit: contain;
@@ -126,6 +126,8 @@
         .btn-group {
             display: flex;
             gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .btn { 
@@ -137,16 +139,20 @@
             font-weight: bold; 
             font-size: 16px; 
             cursor: pointer;
-            text-decoration: none; /* リンクの下線を消す */
-            display: inline-block;
+            text-decoration: none; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        /* 保存ボタンを目立たせる色にする */
-        #save-btn {
-            background-color: #ff3333;
+        
+        /* 共有ボタンを目立たせる */
+        #share-btn {
+            background-color: #007AFF; /* iPhoneっぽい青 */
             color: white;
+            min-width: 120px;
         }
 
-        /* フラッシュ演出用の白いレイヤー */
+        /* フラッシュ演出 */
         #flash-layer {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -158,6 +164,13 @@
         }
         .flash-active {
             opacity: 1 !important;
+        }
+        
+        /* 案内テキスト */
+        .guide-text {
+            font-size: 14px;
+            margin-bottom: 15px;
+            line-height: 1.5;
         }
     </style>
 </head>
@@ -185,12 +198,11 @@
 
     <div id="preview-overlay">
         <img id="preview-img">
-        <p>画像を長押し、または「保存」ボタンで保存</p>
+        <p class="guide-text">「保存・共有」を押して、<br>「画像を保存」や「LINE」を選んでください</p>
         
         <div class="btn-group">
-            <a id="save-btn" class="btn" download="nihonmatsu-photo.jpg">画像を保存</a>
-            
-            <button class="btn" onclick="closePreview()">閉じる</button>
+            <button id="share-btn" class="btn">保存・共有</button>
+            <a id="hidden-dl-link" style="display:none;"></a> <button class="btn" onclick="closePreview()">閉じる</button>
         </div>
     </div>
 
@@ -201,9 +213,9 @@
         const frameImg = document.getElementById('frame');
         const flashLayer = document.getElementById('flash-layer');
         const shutterBtn = document.getElementById('shutter-btn');
-        const saveBtn = document.getElementById('save-btn'); // ★追加
+        const shareBtn = document.getElementById('share-btn');
+        const hiddenDlLink = document.getElementById('hidden-dl-link');
         
-        // 画像パスの設定
         frameImg.src = "frame.png";
 
         const previewOverlay = document.getElementById('preview-overlay');
@@ -211,6 +223,7 @@
         
         let currentFacingMode = 'user';
         let currentStream = null;
+        let currentBlob = null; // 撮影データを保持する変数
 
         function startCamera() {
             if (currentStream) {
@@ -223,7 +236,6 @@
                 video.style.transform = 'translate(-50%, -50%) scaleX(1)';
             }
 
-            // iPad/PC高画質化設定
             navigator.mediaDevices.getUserMedia({
                 video: { 
                     facingMode: currentFacingMode,
@@ -253,6 +265,16 @@
             startCamera();
         });
 
+        // 画像データをBlob（ファイル）に変換する関数
+        function dataURLtoBlob(dataurl) {
+            var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+                bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            while(n--){
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], {type:mime});
+        }
+
         const takePhoto = (e) => {
             if (e.type === 'touchstart') e.preventDefault();
             
@@ -268,12 +290,16 @@
                 context.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
             }
             
-            // ★重要：画像のデータURLを生成
+            // 画像データを生成
             const dataURL = canvas.toDataURL('image/jpeg', 1.0);
             previewImg.src = dataURL;
             
-            // ★追加：保存ボタンのリンク先にも同じ画像データをセット
-            saveBtn.href = dataURL;
+            // ★重要：共有用にBlobデータを生成しておく
+            currentBlob = dataURLtoBlob(dataURL);
+
+            // PC等のために一応ダウンロードリンクにもセット
+            hiddenDlLink.href = dataURL;
+            hiddenDlLink.download = "nihonmatsu-photo.jpg";
 
             setTimeout(() => {
                 flashLayer.classList.remove('flash-active');
@@ -284,6 +310,32 @@
 
         shutterBtn.addEventListener('touchstart', takePhoto, {passive: false});
         shutterBtn.addEventListener('click', takePhoto);
+
+        // ★保存・共有ボタンの処理
+        shareBtn.addEventListener('click', async () => {
+            // Web Share APIが使えるかチェック
+            if (navigator.share && currentBlob) {
+                try {
+                    // 画像ファイルを「ファイル」として共有
+                    const file = new File([currentBlob], "photo.jpg", { type: "image/jpeg" });
+                    
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: '二十歳のつどい記念写真',
+                            text: '二本松市 二十歳のつどい記念フレームで撮影しました！'
+                        });
+                        return; // 共有成功したらここで終了
+                    }
+                } catch (error) {
+                    console.log('共有エラーまたはキャンセル:', error);
+                    // エラーが出た場合（PCなど）は、通常のダウンロードに切り替える
+                }
+            }
+            
+            // 共有機能が使えない場合（PCや一部Androidブラウザ）は強制ダウンロード
+            hiddenDlLink.click();
+        });
 
         function closePreview() {
             previewOverlay.style.display = 'none';

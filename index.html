@@ -259,6 +259,7 @@
             console.log("フレーム画像の読み込みに失敗しました。");
         };
 
+        // DataURLをBlobに変換する関数
         function dataURLtoBlob(dataurl) {
             var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
                 bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
@@ -283,13 +284,17 @@
                 context.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
             }
             
+            // 1. DataURLを生成
             const dataURL = canvas.toDataURL('image/jpeg', 1.0);
+            // 2. それをBlobに変換
             currentBlob = dataURLtoBlob(dataURL);
+            // 3. Blobから表示用のURLを生成
             currentPreviewUrl = URL.createObjectURL(currentBlob);
 
+            // プレビュー画像にBlob URLをセット
             previewImg.src = currentPreviewUrl;
             
-            // 強制ダウンロード用リンクの設定
+            // 強制ダウンロード用リンク
             hiddenDlLink.href = currentPreviewUrl;
             hiddenDlLink.download = "nihonmatsu-photo.jpg";
 
@@ -308,12 +313,24 @@
             startCamera();
         });
 
-        // ★修正ポイント：共有メニューを出さずに、強制的にダウンロードを実行する
-        shareBtn.addEventListener('click', () => {
-            // 不安定な共有機能は使わず、確実にダウンロードリンクをクリックさせる
-            if (currentPreviewUrl) {
-                 hiddenDlLink.click();
+        shareBtn.addEventListener('click', async () => {
+            if (navigator.share && currentBlob) {
+                try {
+                    const file = new File([currentBlob], "photo.jpg", { type: "image/jpeg" });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: '二十歳のつどい記念写真',
+                            text: '二本松市 二十歳のつどい記念フレームで撮影しました！'
+                        });
+                        return;
+                    }
+                } catch (error) {
+                    console.log('共有エラーまたはキャンセル:', error);
+                    return;
+                }
             }
+            hiddenDlLink.click();
         });
 
         function closePreview() {

@@ -70,7 +70,7 @@
         }
         #shutter-btn:active { background-color: #ddd; transform: translateX(-50%) scale(0.95); }
 
-        /* 切り替えボタンのスタイル */
+        /* 切り替えボタン */
         #switch-btn {
             position: absolute;
             top: calc(20px + env(safe-area-inset-top));
@@ -79,7 +79,7 @@
             height: 50px;
             background-color: rgba(0, 0, 0, 0.5);
             border-radius: 50%;
-            z-index: 20; /* 前面に出るように数値を上げました */
+            z-index: 20;
             cursor: pointer;
             display: flex;
             justify-content: center;
@@ -105,7 +105,7 @@
             height: 100vh; 
             height: 100dvh;
             background: rgba(0,0,0,0.95);
-            z-index: 30; /* プレビューは一番上 */
+            z-index: 30;
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -222,6 +222,7 @@
         let currentFacingMode = 'user';
         let currentStream = null;
         let currentBlob = null;
+        let currentPreviewUrl = null;
 
         function startCamera() {
             if (currentStream) {
@@ -283,11 +284,13 @@
             }
             
             const dataURL = canvas.toDataURL('image/jpeg', 1.0);
-            previewImg.src = dataURL;
-            
             currentBlob = dataURLtoBlob(dataURL);
+            currentPreviewUrl = URL.createObjectURL(currentBlob);
 
-            hiddenDlLink.href = dataURL;
+            previewImg.src = currentPreviewUrl;
+            
+            // 強制ダウンロード用リンクの設定
+            hiddenDlLink.href = currentPreviewUrl;
             hiddenDlLink.download = "nihonmatsu-photo.jpg";
 
             setTimeout(() => {
@@ -300,35 +303,25 @@
         shutterBtn.addEventListener('touchstart', takePhoto, {passive: false});
         shutterBtn.addEventListener('click', takePhoto);
 
-        // 切り替えボタンのイベントリスナー
         document.getElementById('switch-btn').addEventListener('click', () => {
             currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
             startCamera();
         });
 
-        shareBtn.addEventListener('click', async () => {
-            if (navigator.share && currentBlob) {
-                try {
-                    const file = new File([currentBlob], "photo.jpg", { type: "image/jpeg" });
-                    
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                        await navigator.share({
-                            files: [file],
-                            title: '二十歳のつどい記念写真',
-                            text: '二本松市 二十歳のつどい記念フレームで撮影しました！'
-                        });
-                        return;
-                    }
-                } catch (error) {
-                    console.log('共有エラーまたはキャンセル:', error);
-                    return;
-                }
+        // ★修正ポイント：共有メニューを出さずに、強制的にダウンロードを実行する
+        shareBtn.addEventListener('click', () => {
+            // 不安定な共有機能は使わず、確実にダウンロードリンクをクリックさせる
+            if (currentPreviewUrl) {
+                 hiddenDlLink.click();
             }
-            hiddenDlLink.click();
         });
 
         function closePreview() {
             previewOverlay.style.display = 'none';
+            if (currentPreviewUrl) {
+                URL.revokeObjectURL(currentPreviewUrl);
+                currentPreviewUrl = null;
+            }
         }
 
         function drawImageProp(ctx, img, x, y, w, h, offsetX, offsetY, isMirrored) {

@@ -3,19 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>二本松市 2026年度 ARフォトフレーム B</title>
+    <title>WebAR Photo Frame</title>
     <style>
-        body {
-            margin: 0; overflow: hidden; background: #000; font-family: sans-serif;
-            height: 100vh; height: 100dvh; display: grid; place-items: center;
-        }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        
         #camera-container {
             position: relative;
-            width: min(100vw, calc(100vh * 9 / 16));
-            width: min(100vw, calc(100dvh * 9 / 16));
-            aspect-ratio: 9 / 16;
+            width: 100%;
+            height: 100vh;
+            height: 100dvh; 
             background: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             overflow: hidden;
+        }
+
+        /* PC対策 */
+        @media (min-aspect-ratio: 9/16) {
+            #camera-container {
+                width: auto;
+                aspect-ratio: 9/16; 
+                margin: 0 auto; 
+                border-left: 1px solid #333;
+                border-right: 1px solid #333;
+            }
         }
 
         #camera {
@@ -35,7 +47,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            object-fit: contain; 
+            object-fit: cover; 
             z-index: 2;
             pointer-events: none;
         }
@@ -261,7 +273,6 @@
             if (e.type === 'touchstart') e.preventDefault();
             
             if (shutterBtn.dataset.processing === "true") return;
-            if (video.readyState < 2 || !video.videoWidth || !frameImg.complete || !frameImg.naturalWidth) return;
             shutterBtn.dataset.processing = "true";
 
             flashLayer.classList.add('flash-active');
@@ -270,11 +281,7 @@
             canvas.height = 1920;
             drawImageProp(context, video, 0, 0, canvas.width, canvas.height, 0.5, 0.5, currentFacingMode === 'user');
             if (frameImg.complete && frameImg.naturalWidth !== 0) {
-                // Keep the entire supplied artwork, using the same contain fit as the preview.
-                const scale = Math.min(canvas.width / frameImg.naturalWidth, canvas.height / frameImg.naturalHeight);
-                const width = frameImg.naturalWidth * scale;
-                const height = frameImg.naturalHeight * scale;
-                context.drawImage(frameImg, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+                context.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
             }
             
             // 1. DataURLを生成
@@ -289,7 +296,7 @@
             
             // 強制ダウンロード用リンク
             hiddenDlLink.href = currentPreviewUrl;
-            hiddenDlLink.download = "nihonmatsu-2026-b.jpg";
+            hiddenDlLink.download = "nihonmatsu-photo.jpg";
 
             setTimeout(() => {
                 flashLayer.classList.remove('flash-active');
@@ -309,7 +316,7 @@
         shareBtn.addEventListener('click', async () => {
             if (navigator.share && currentBlob) {
                 try {
-                    const file = new File([currentBlob], hiddenDlLink.download, { type: "image/jpeg" });
+                    const file = new File([currentBlob], "photo.jpg", { type: "image/jpeg" });
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         await navigator.share({
                             files: [file],

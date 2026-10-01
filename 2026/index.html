@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>二本松市 2026年度 ARフォトフレーム B</title>
+    <style>
+        body {
+            margin: 0; overflow: hidden; background: #000; font-family: sans-serif;
+            height: 100vh; height: 100dvh; display: grid; place-items: center;
+        }
+        #camera-container {
+            position: relative;
+            width: min(100vw, calc(100vh * 9 / 16));
+            width: min(100vw, calc(100dvh * 9 / 16));
+            aspect-ratio: 9 / 16;
+            background: black;
+            overflow: hidden;
+        }
+
+        #camera {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            object-fit: cover; 
+            z-index: 1;
+        }
+
+        #frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain; 
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        #shutter-btn {
+            position: absolute;
+            bottom: calc(30px + env(safe-area-inset-bottom)); 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70px;
+            height: 70px;
+            background-color: white;
+            border-radius: 50%;
+            border: 5px solid #ccc;
+            z-index: 10;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        #shutter-btn:active { background-color: #ddd; transform: translateX(-50%) scale(0.95); }
+
+        /* 切り替えボタン */
+        #switch-btn {
+            position: absolute;
+            top: calc(20px + env(safe-area-inset-top));
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            z-index: 20;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            border: 2px solid rgba(255,255,255,0.8);
+            -webkit-tap-highlight-color: transparent;
+        }
+        #switch-btn:active { background-color: rgba(0,0,0,0.8); }
+        
+        #switch-btn svg {
+            width: 30px;
+            height: 30px;
+            fill: white;
+        }
+
+        #preview-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh; 
+            height: 100dvh;
+            background: rgba(0,0,0,0.95);
+            z-index: 30;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            box-sizing: border-box; 
+        }
+        
+        #preview-img {
+            max-width: 90vw;
+            max-height: 55vh; 
+            border: 2px solid white;
+            margin-bottom: 15px;
+            object-fit: contain;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn { 
+            padding: 12px 24px; 
+            background: white; 
+            color: black; 
+            border: none; 
+            border-radius: 30px; 
+            font-weight: bold; 
+            font-size: 16px; 
+            cursor: pointer;
+            text-decoration: none; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #share-btn {
+            background-color: #007AFF;
+            color: white;
+            min-width: 120px;
+        }
+
+        #flash-layer {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+            transition: opacity 0.2s ease-out;
+        }
+        .flash-active {
+            opacity: 1 !important;
+        }
+        
+        .guide-text {
+            font-size: 14px;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    
+    <div id="flash-layer"></div>
+
+    <div id="camera-container">
+        <video id="camera" autoplay playsinline muted></video>
+        <img id="frame" alt="">
+        
+        <div id="shutter-btn"></div>
+
+        <div id="switch-btn">
+            <svg viewBox="0 0 24 24">
+                <path d="M0 0h24v24H0z" fill="none"/>
+                <path d="M20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 11.5V13H9v2.5L5.5 12 9 8.5V11h6V8.5l3.5 3.5-3.5 3.5z"/>
+            </svg>
+        </div>
+    </div>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <div id="preview-overlay">
+        <img id="preview-img">
+        <p class="guide-text">画像を長押し、または下のボタンから<br>保存・共有してください</p>
+        
+        <div class="btn-group">
+            <button id="share-btn" class="btn">保存・共有</button>
+            <a id="hidden-dl-link" style="display:none;"></a>
+            
+            <button class="btn" onclick="closePreview()">閉じる</button>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('camera');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const frameImg = document.getElementById('frame');
+        const flashLayer = document.getElementById('flash-layer');
+        const shutterBtn = document.getElementById('shutter-btn');
+        const shareBtn = document.getElementById('share-btn');
+        const hiddenDlLink = document.getElementById('hidden-dl-link');
+        
+        frameImg.src = "frame.png";
+
+        const previewOverlay = document.getElementById('preview-overlay');
+        const previewImg = document.getElementById('preview-img');
+        
+        let currentFacingMode = 'user';
+        let currentStream = null;
+        let currentBlob = null;
+        let currentPreviewUrl = null;
+
+        function startCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            if (currentFacingMode === 'user') {
+                video.style.transform = 'translate(-50%, -50%) scaleX(-1)';
+            } else {
+                video.style.transform = 'translate(-50%, -50%) scaleX(1)';
+            }
+
+            navigator.mediaDevices.getUserMedia({
+                video: { 
+                    facingMode: currentFacingMode,
+                    width: { ideal: 4096 },  
+                    height: { ideal: 4096 }
+                },
+                audio: false
+            })
+            .then(stream => {
+                currentStream = stream;
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("Camera Error: ", err);
+                alert("カメラの起動に失敗しました: " + err.name);
+            });
+        }
+
+        startCamera();
+        
+        frameImg.onerror = function() {
+            console.log("フレーム画像の読み込みに失敗しました。");
+        };
+
+        // DataURLをBlobに変換する関数
+        function dataURLtoBlob(dataurl) {
+            var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+                bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            while(n--){
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], {type:mime});
+        }
+
+        const takePhoto = (e) => {
+            if (e.type === 'touchstart') e.preventDefault();
+            
+            if (shutterBtn.dataset.processing === "true") return;
+            if (video.readyState < 2 || !video.videoWidth || !frameImg.complete || !frameImg.naturalWidth) return;
+            shutterBtn.dataset.processing = "true";
+
+            flashLayer.classList.add('flash-active');
+
+            canvas.width = 1080;
+            canvas.height = 1920;
+            drawImageProp(context, video, 0, 0, canvas.width, canvas.height, 0.5, 0.5, currentFacingMode === 'user');
+            if (frameImg.complete && frameImg.naturalWidth !== 0) {
+                // Keep the entire supplied artwork, using the same contain fit as the preview.
+                const scale = Math.min(canvas.width / frameImg.naturalWidth, canvas.height / frameImg.naturalHeight);
+                const width = frameImg.naturalWidth * scale;
+                const height = frameImg.naturalHeight * scale;
+                context.drawImage(frameImg, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+            }
+            
+            // 1. DataURLを生成
+            const dataURL = canvas.toDataURL('image/jpeg', 1.0);
+            // 2. それをBlobに変換
+            currentBlob = dataURLtoBlob(dataURL);
+            // 3. Blobから表示用のURLを生成
+            currentPreviewUrl = URL.createObjectURL(currentBlob);
+
+            // プレビュー画像にBlob URLをセット
+            previewImg.src = currentPreviewUrl;
+            
+            // 強制ダウンロード用リンク
+            hiddenDlLink.href = currentPreviewUrl;
+            hiddenDlLink.download = "nihonmatsu-2026-b.jpg";
+
+            setTimeout(() => {
+                flashLayer.classList.remove('flash-active');
+                previewOverlay.style.display = 'flex';
+                shutterBtn.dataset.processing = "false";
+            }, 150);
+        };
+
+        shutterBtn.addEventListener('touchstart', takePhoto, {passive: false});
+        shutterBtn.addEventListener('click', takePhoto);
+
+        document.getElementById('switch-btn').addEventListener('click', () => {
+            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+            startCamera();
+        });
+
+        shareBtn.addEventListener('click', async () => {
+            if (navigator.share && currentBlob) {
+                try {
+                    const file = new File([currentBlob], hiddenDlLink.download, { type: "image/jpeg" });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: '二十歳のつどい記念写真',
+                            text: '二本松市 二十歳のつどい記念フレームで撮影しました！'
+                        });
+                        return;
+                    }
+                } catch (error) {
+                    console.log('共有エラーまたはキャンセル:', error);
+                    return;
+                }
+            }
+            hiddenDlLink.click();
+        });
+
+        function closePreview() {
+            previewOverlay.style.display = 'none';
+            if (currentPreviewUrl) {
+                URL.revokeObjectURL(currentPreviewUrl);
+                currentPreviewUrl = null;
+            }
+        }
+
+        function drawImageProp(ctx, img, x, y, w, h, offsetX, offsetY, isMirrored) {
+            if (arguments.length === 2) {
+                x = y = 0;
+                w = ctx.canvas.width;
+                h = ctx.canvas.height;
+            }
+            offsetX = typeof offsetX === "number" ? offsetX : 0.5;
+            offsetY = typeof offsetY === "number" ? offsetY : 0.5;
+            if (offsetX < 0) offsetX = 0; if (offsetY < 0) offsetY = 0; if (offsetX > 1) offsetX = 1; if (offsetY > 1) offsetY = 1;
+
+            var iw = img.videoWidth, ih = img.videoHeight,
+                r = Math.min(w / iw, h / ih),
+                nw = iw * r, nh = ih * r,
+                cx, cy, cw, ch, ar = 1;
+
+            if (nw < w) ar = w / nw;
+            if (Math.abs(ar - 1) < 1e-14 && nh < h) ar = h / nh;
+            nw *= ar; nh *= ar;
+            cw = iw / (nw / w); ch = ih / (nh / h);
+            cx = (iw - cw) * offsetX; cy = (ih - ch) * offsetY;
+
+            ctx.save();
+            if (isMirrored) {
+                ctx.translate(w, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(img, cx, cy, cw, ch,  x, y, w, h);
+            ctx.restore();
+        }
+    </script>
+</body>
+</html>
